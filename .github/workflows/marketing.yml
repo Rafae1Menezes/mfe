@@ -1,0 +1,34 @@
+name: deploy-marketing #nome desse workflow
+
+on: #quando vamos executar esse worflow
+  push: #quando receber um push
+    branches: #na branch master
+      - master
+    paths: #alterando o conteudo da pasta marketing
+      - "packages/marketing/**"
+
+defaults: #configurando onde ele deve rodar os comandos / scripts
+  run:
+    working-directory: packages/marketing
+
+jobs: #aqui é o workflow de fato
+  build: # esse é um job
+    runs-on: ubuntu-latest #cria uma virtual machine
+
+    steps:
+      - uses: actions/checkout@v2 #verifica e carrega o codigo denro da viitural machine
+      - run: npm install
+      - run: npm run build
+
+      - uses: shinyinc/action-aws-cli@v1.2 #da acesso ao CLI da AWS
+      - run: aws s3 sync dist s3://${{ secrets.AWS_S3_BUCKET_NAME }}/marketing/latest #sincroniza o conteuodo do build com o armazeamento no S3
+        env: #configuração das variáveis de ambiente
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1 #pego no AWS
+
+      - run: aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_DISTRIBUTION_ID }} --paths "/marketing/latest/remoteEntry.js"
+        env: #configuração das variáveis de ambiente
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1 #pego no AWS
